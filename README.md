@@ -14,5 +14,5 @@ Since our tool focuses on generating top-down deconvoluted spectrum, multi-charg
 **Noise**:\
 The number of noisy peaks in the simulated spectrum is automatically computed according to the relationship between the number of peaks and the precursor mass of the spectrum (the molecular mass of the input protein segment), which we analysed beforehand.
 
-**output Format**:\
+**Output Format**:\
 The original simulator output **.ms2** format file. We provide a python script **ms2tomsalign.py** for converting **.ms2** format to **.msalign** format file with corresponding **.feature** file.

@@ -1,3 +1,5 @@
+import os
+
 def toMsalign(file_name):
     sp_list = []
     f = open(file_name, encoding= 'utf-8')
@@ -115,4 +117,11 @@ def toMsalign(file_name):
                         + str(sp_list[i]['Sample_feature_intensity']) + "\n")
     f_feature.close()
 
-toMsalign("2000_sim/2000_sim.ms2")
+
+# for i in range(3,101):
+#     os.mkdir("SimForComp/" + str(i) + "/")
+
+# for i in range(2,21):
+#     toMsalign("SimForComp/" + str(i) + "/sim.ms2")
+
+toMsalign("similarity/2/similarity_sim_3.ms2")

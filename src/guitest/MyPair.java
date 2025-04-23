@@ -8,6 +8,7 @@ package guitest;
 public class MyPair {
     public String myStr = null;
     public int myInt = -1;
+    public int myPos = -1;
     public boolean mod = false;
 
     MyPair() {

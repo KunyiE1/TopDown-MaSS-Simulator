@@ -238,6 +238,40 @@ public class SimSpec {
         return myPair;
     }
 
+
+    static MyPair getNextAA(String myString, int i, int pos) {
+        MyPair myPair = new MyPair();
+        String[] rsult = myString.split("");
+        String temp = null;
+        String newStr = null;
+        temp = rsult[i];
+        if (i + 1 < rsult.length && rsult[i + 1].equals("[")) {
+            newStr = temp;
+
+            int j;
+            for(j = i + 1; !rsult[j].equals("]"); ++j) {
+                newStr = newStr + rsult[j];
+            }
+
+            newStr = newStr + rsult[j];
+            temp = newStr;
+            myPair.myStr = newStr;
+            myPair.myInt = j;
+            myPair.mod = true;
+            myPair.myPos = pos;
+        }
+
+        if (!myPair.mod) {
+            myPair.myStr = temp;
+            myPair.myInt = i;
+            myPair.myPos = pos;
+        }
+
+        return myPair;
+    }
+
+
+
     public static String[][] readCSV(String filePath) throws Exception  {
         //第一步，创建一个空二维数据准备存数据，创建缓冲流读取出文件的行数
 
@@ -272,8 +306,10 @@ public class SimSpec {
 
     public static void runSimulator(String inFileString, String outFileString, String ptmFileString, String cIonsString, String nIonsString, String cProbsString, String nProbsString, String maxChString, String maxChProbsString, String cIntenString, String nIntenString, String snrString, String noiseTypeString, String noiseMinString, String noiseMaxString, String immIonString, String immIonProbsString, String immIonIntenString, String precMinMass, String precMaxMass) throws Exception {
         Random r = new Random(System.currentTimeMillis());
+        double isotope_shift = 1.00235;
         Map<String, Double> aaMasses = new HashMap();
         String gndTruth = "./peptides.rst";
+        String IsoShift = "./isotope_shift.rst";
         BufferedReader ptmReader = new BufferedReader(new FileReader(ptmFileString));
         readParams(cIonsString, nIonsString, cProbsString, nProbsString, maxChString, maxChProbsString, cIntenString, nIntenString, snrString, noiseTypeString, noiseMinString, noiseMaxString, immIonString, immIonProbsString, immIonIntenString, precMinMass, precMaxMass);
         populateMassTable(aaMasses, ptmReader);
@@ -282,6 +318,10 @@ public class SimSpec {
         PrintWriter printWriter = new PrintWriter(myPepsFile);
         FileWriter myRstFile = new FileWriter(gndTruth);
         PrintWriter rstWriter = new PrintWriter(myRstFile);
+
+        FileWriter IsoShiftFile = new FileWriter(IsoShift);
+        PrintWriter IsoWriter = new PrintWriter(IsoShiftFile);
+
         ArrayList<Ion> bList = new ArrayList();
         ArrayList<Ion> yList = new ArrayList();
         ArrayList<Ion> ImmList = new ArrayList();
@@ -353,7 +393,10 @@ public class SimSpec {
 
 
 
+
         while((myLine = peptideReader.readLine()) != null) {
+
+
             if (!checkHeader) {
                 checkHeader = true;
             } else {
@@ -364,11 +407,35 @@ public class SimSpec {
                 int subScriptB = 0;
                 int subScriptY = 0;
                 String peptideStr = myLine;
-
+                ArrayList<Integer> pos_list = new ArrayList();
                 MyPair c;
+                int pos = 0;
                 for(int k = 0; k < peptideStr.length(); k = c.myInt + 1) {
-                    c = getNextAA(peptideStr, k);
+                    pos_list.add((Integer)k);
+//                    c = getNextAA(peptideStr, k);
+                    c = getNextAA(peptideStr, k, pos);
+                    pos = pos + 1;
                     peptideMassN += (Double)aaMasses.get(c.myStr);
+                }
+
+                double prob_isotope = r.nextDouble();
+                boolean isotope = false;
+                boolean isotope_positive = true;
+                int iso_pos = 0;
+                if (prob_isotope > 1){
+                    isotope = true;
+                    iso_pos = pos_list.get(r.nextInt(pos_list.size() - 1) + 1);
+                    double prob_pos_neg = r.nextDouble();
+                    if (prob_pos_neg > 0.5){
+                        isotope_positive = true;
+                        peptideMassN += isotope_shift;
+                    }else{
+                        isotope_positive = false;
+                        peptideMassN -= isotope_shift;
+                    }
+                }else{
+                    isotope = false;
+                    IsoWriter.println("no isotope shift");
                 }
 
 
@@ -385,7 +452,6 @@ public class SimSpec {
                     for(l = 0; l < immoniumIonsAA.size(); ++l) {
                         System.out.println(immoniumIonsAA.get(l));
                         if (getSelection((Double)ImmProbs.get(l), r)) {
-
                         ImmList.add(new Ion((Double)aaMasses.get(immoniumIonsAA.get(l)) - 26.99 + genError(ion_error, max_ion_err), (Double)ImmIntens.get(l) * intenCon));}
                     }
 
@@ -450,6 +516,16 @@ public class SimSpec {
                         ++subScriptB;
                         subScriptY = peptideStr.length() - subScriptB;
                         bSeries += (Double)aaMasses.get(myChar.myStr);
+
+                        if(l == iso_pos && isotope) {
+                            if (isotope_positive){
+                                bSeries += isotope_shift;
+                                IsoWriter.println("+1.00235 positive isotope shift occur at " + l);
+                            }else{
+                                bSeries -= isotope_shift;
+                                IsoWriter.println("-1.00235 negative isotope shift occur at " + l);
+                            }
+                        }
                         //ySeries = peptideMassN - bSeries + 2.0;
                         ySeries = peptideMassN - bSeries;
 
@@ -461,8 +537,10 @@ public class SimSpec {
                             mean = Double.parseDouble(probsForOffsetN.get((int) Math.ceil(ionOffsetsN.get(i)))[(int) (peptideMassN / 10000)][indexForRes.get(myChar.myStr.substring(0,1))]);
                             var = Double.parseDouble(varN.get((int) Math.ceil(ionOffsetsN.get(i)))[(int) (peptideMassN / 10000)][indexForRes.get(myChar.myStr.substring(0,1))]);
 
-                            double prob = noiseGen.nextGaussian() * Math.sqrt(var) + mean;
-
+                            double prob = (noiseGen.nextGaussian() * Math.sqrt(var) + mean);
+                            if (peptideMassN > 20000) {
+                                prob = prob / 0.75;
+                            }
 
                             if (tempY.m_z > 0.0 && getSelection((Double)prob * 100, r)) {
                                 ++ionsGen;
@@ -483,7 +561,7 @@ public class SimSpec {
                                 tempY = new Ion(ySeries + (Double) ionOffsetsC.get(i) + genError(ion_error, max_ion_err), (Double) ionIntensitiesC.get(i) * intenCon);
                                 double mean = Double.parseDouble(probsForOffsetC.get((int)Math.ceil(ionOffsetsC.get(i)))[(int)(peptideMassN / 10000)][indexForRes.get(myChar_nxt.myStr.substring(0,1))]);
                                 double var = Double.parseDouble(varC.get((int)Math.ceil(ionOffsetsC.get(i)))[(int)(peptideMassN / 10000)][indexForRes.get(myChar_nxt.myStr.substring(0,1))]);
-                                double prob = noiseGen.nextGaussian() * Math.sqrt(var) + mean;
+                                double prob = (noiseGen.nextGaussian() * Math.sqrt(var) + mean);
 
 
                                 if (tempY.m_z > 0.0 && getSelection((Double) prob * 100, r)) {
@@ -514,6 +592,8 @@ public class SimSpec {
         printWriter.close();
         rstWriter.flush();
         rstWriter.close();
+        IsoWriter.flush();
+        IsoWriter.close();
         JOptionPane.showMessageDialog((Component)null, "Smulation Complete", "System Message: ", 1);
     }
 }

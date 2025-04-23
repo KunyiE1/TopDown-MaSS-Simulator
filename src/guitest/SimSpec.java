@@ -318,7 +318,7 @@ public class SimSpec {
         PrintWriter printWriter = new PrintWriter(myPepsFile);
         FileWriter myRstFile = new FileWriter(gndTruth);
         PrintWriter rstWriter = new PrintWriter(myRstFile);
-
+        double iso_gen_thresh = 0.5;
         FileWriter IsoShiftFile = new FileWriter(IsoShift);
         PrintWriter IsoWriter = new PrintWriter(IsoShiftFile);
 
@@ -422,7 +422,7 @@ public class SimSpec {
                 boolean isotope = false;
                 boolean isotope_positive = true;
                 int iso_pos = 0;
-                if (prob_isotope > 1){
+                if (prob_isotope > iso_gen_thresh){
                     isotope = true;
                     iso_pos = pos_list.get(r.nextInt(pos_list.size() - 1) + 1);
                     double prob_pos_neg = r.nextDouble();
@@ -538,9 +538,6 @@ public class SimSpec {
                             var = Double.parseDouble(varN.get((int) Math.ceil(ionOffsetsN.get(i)))[(int) (peptideMassN / 10000)][indexForRes.get(myChar.myStr.substring(0,1))]);
 
                             double prob = (noiseGen.nextGaussian() * Math.sqrt(var) + mean);
-                            if (peptideMassN > 20000) {
-                                prob = prob / 0.75;
-                            }
 
                             if (tempY.m_z > 0.0 && getSelection((Double)prob * 100, r)) {
                                 ++ionsGen;
